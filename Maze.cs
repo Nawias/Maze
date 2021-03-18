@@ -43,6 +43,8 @@ namespace Maze2
         private Stack<Node> nodes = new Stack<Node>();
         private Random rand = new Random();
         private bool generated = false;
+        private int genSteps = 0;
+        private int walkSteps = 0;
 
         public Maze(int dimension)
         {
@@ -83,6 +85,7 @@ namespace Maze2
                 }
                 Console.WriteLine();
             }
+            Console.WriteLine("Generation Steps: " + genSteps + ", Pathfinding Steps: " + walkSteps);
         }
 
         public void FindFullPath()
@@ -101,8 +104,10 @@ namespace Maze2
 
             do
             {
-
-                if (hasEmptySpacesAround(currentStep.node))
+                if (IsWall(currentStep.node)) {
+                    currentStep = steps.Pop();
+                }
+                else if (HasEmptySpacesAround(currentStep.node))
                 {
                     markGood(currentStep);
                     steps.Push(currentStep);
@@ -113,39 +118,61 @@ namespace Maze2
                     markBad(currentStep);
                     currentStep = steps.Pop();
                 }
-                
+                walkSteps++;
             } 
             while (!IsEndPoint(currentStep.node) && steps.Count > 0);
 
 
         }
 
+        public void Generate()
+        {
+            //Start Point
+
+            maze[0, 1] = NodeType.START_POINT;
+            // 1.
+            Node node = new Node(1, 1);
+            maze[node.y, node.x] = NodeType.PATH;
+            nodes.Push(node);
+            // 2.
+            while (nodes.Count > 0)
+            {
+                //1.
+                node = nodes.Pop();
+                //2.
+                if (HasNeighbours(node))
+                {
+                    //1.
+                    nodes.Push(node);
+                    //2.
+                    Node nextNode = ChooseRandomNeighbour(node);
+                    //3.
+                    RemoveWall(node, nextNode);
+                    //4.
+                    maze[nextNode.y, nextNode.x] = NodeType.PATH;
+                    nodes.Push(nextNode);
+                }
+                genSteps++;
+            }
+            //End Point
+            Node endPoint = GenerateEndPoint();
+            maze[endPoint.y, endPoint.x] = NodeType.END_POINT;
+            //Finished
+            generated = true;
+        }
+
         private void markGood(Step currentStep)
         {
-            maze[currentStep.node.y, currentStep.node.x] = NodeType.GOOD_PATH;
+            if (maze[currentStep.node.y, currentStep.node.x] != NodeType.START_POINT)
+                maze[currentStep.node.y, currentStep.node.x] = NodeType.GOOD_PATH;
         }
+        
         private void markBad(Step currentStep)
         {
             maze[currentStep.node.y, currentStep.node.x] = NodeType.BAD_PATH;
         }
-
-        private bool hasEmptySpacesAround(Node node)
-        {
-            int spaces = 0;
-            for (int y = node.y - 1; y <= node.y + 1; y++)
-            {
-                for (int x = node.x - 1; x <= node.x + 1; x++)
-                {
-                    if (isPointInBounds(x, y) && pointIsNotCorner(node, x, y) && ( maze[y, x] == NodeType.PATH || maze[y, x] == NodeType.END_POINT ))
-                    {
-                        spaces++;
-                    }
-                }
-            }
-            return spaces > 0;
-        }
-
-        Step GetNextStep(Step currentStep)
+        
+        private Step GetNextStep(Step currentStep)
         {
             Step nextStep = currentStep.Copy();
             int count = 0;
@@ -153,6 +180,7 @@ namespace Maze2
             {
                 nextStep.node = currentStep.Copy().node;
                 nextStep.direction = (Direction)((((int)nextStep.direction) + 1) % 4);
+                if (IsEndPoint(nextStep.node)) break;
                 switch (nextStep.direction)
                 {
                     case Direction.DOWN:
@@ -172,7 +200,8 @@ namespace Maze2
                             nextStep.node.x += 1;
                         break;
                 }
-                if (IsEndPoint(nextStep.node)) break;
+                if (IsEndPoint(nextStep.node)) 
+                    break;
                 count++;
             } while (maze[nextStep.node.y, nextStep.node.x] != NodeType.PATH && count<4);
 
@@ -180,12 +209,6 @@ namespace Maze2
 
         }
         
-
-        private bool IsEndPoint(Node node)
-        {
-            return maze[node.y, node.x] == NodeType.END_POINT;
-        }
-
         private Node FindStartPoint()
         {
             Node startPoint = new Node(0, 0);
@@ -220,42 +243,7 @@ namespace Maze2
 
             return startPoint;
         }
-
-        public void Generate()
-        {
-            //Start Point
-
-            maze[0, 1] = NodeType.START_POINT;
-            // 1.
-            Node node = new Node(1, 1);
-            maze[node.y, node.x] = NodeType.PATH;
-            nodes.Push(node);
-            // 2.
-            while(nodes.Count > 0) 
-            {
-                //1.
-                node = nodes.Pop();
-                //2.
-                if (hasNeighbours(node))
-                {
-                    //1.
-                    nodes.Push(node);
-                    //2.
-                    Node nextNode = chooseRandomNeighbour(node);
-                    //3.
-                    RemoveWall(node, nextNode);
-                    //4.
-                    maze[nextNode.y, nextNode.x] = NodeType.PATH;
-                    nodes.Push(nextNode);
-                }
-            }
-            //End Point
-            Node endPoint = GenerateEndPoint();
-            maze[endPoint.y, endPoint.x] = NodeType.END_POINT;
-            //Finished
-            generated = true;
-        }
-
+        
         private Node GenerateEndPoint()
         {
             Wall wall = (Wall)rand.Next(4);
@@ -265,28 +253,28 @@ namespace Maze2
                 switch (wall)
                 {
                     case Wall.TOP:
-                        endPoint = new Node(rand.Next(dimension / 4, dimension/2)*2+1, 0);
+                        endPoint = new Node(rand.Next(dimension / 4, (dimension-1)/2)*2+1, 0);
                         if (maze[endPoint.y + 1, endPoint.x] == NodeType.WALL)
                             endPoint = new Node(0,0);
                         break;
                     case Wall.BOTTOM:
-                        endPoint = new Node(rand.Next(dimension/2) * 2 - 1, dimension - 1);
+                        endPoint = new Node(rand.Next((dimension-1)/2) * 2 + 1, dimension - 1);
                         if (maze[endPoint.y - 1, endPoint.x] == NodeType.WALL)
                             endPoint = new Node(0, 0);
                         break;
                     case Wall.LEFT:
-                        endPoint = new Node(0, rand.Next(dimension / 4, dimension/2) * 2 - 1);
+                        endPoint = new Node(0, rand.Next(dimension / 4, (dimension-1)/2) * 2 + 1);
                         if (maze[endPoint.y, endPoint.x+1] == NodeType.WALL)
                             endPoint = new Node(0, 0);
                         break;
                     case Wall.RIGHT:
-                        endPoint = new Node(dimension - 1, rand.Next(dimension) * 2-1);
+                        endPoint = new Node(dimension - 1, rand.Next((dimension-1)/2) * 2+1);
                         if (maze[endPoint.y, endPoint.x-1] == NodeType.WALL)
                             endPoint = new Node(0, 0);
                         break;
                     default:
-                        endPoint = new Node(rand.Next(dimension * 2 - 1), 0);
-                        if (maze[endPoint.y + 1, endPoint.x] == NodeType.WALL)
+                        endPoint = new Node(rand.Next((dimension-1) / 2) * 2 + 1, dimension - 1);
+                        if (maze[endPoint.y - 1, endPoint.x] == NodeType.WALL)
                             endPoint = new Node(0, 0);
                         break;
                 }
@@ -295,22 +283,22 @@ namespace Maze2
             
             return endPoint;
         }
-
+        
         private void RemoveWall(Node node, Node nextNode)
         {
             int x = (node.x + nextNode.x) / 2;
             int y = (node.y + nextNode.y) / 2;
             maze[y, x] = NodeType.PATH;
         }
-
-        private Node chooseRandomNeighbour(Node node)
+        
+        private Node ChooseRandomNeighbour(Node node)
         {
             List<Node> neighbours = new List<Node>();
             for (int y = node.y - 2; y <= node.y + 2; y += 2)
             {
                 for (int x = node.x - 2; x <= node.x + 2; x += 2)
                 {
-                    if (isPointInBounds(x,y) && pointIsNotCorner(node, x, y) && maze[y, x] == NodeType.WALL)
+                    if (IsInBounds(x,y) && IsNotCorner(node, x, y) && maze[y, x] == NodeType.WALL)
                     {
                         neighbours.Add(new Node(x, y));
                     }
@@ -321,15 +309,46 @@ namespace Maze2
             return neighbours[index];
 
         }
+        
+        private bool IsWall(Node node)
+        {
+            return maze[node.y, node.x] == NodeType.WALL;
+        }
+        
+        private bool IsEndPoint(Node node)
+        {
+            return maze[node.y, node.x] == NodeType.END_POINT;
+        }
+        
+        private bool HasEmptySpacesAround(Node node)
+        {
+            int spaces = 0;
+            for (int y = node.y - 1; y <= node.y + 1; y++)
+            {
+                for (int x = node.x - 1; x <= node.x + 1; x++)
+                {
 
-        private bool hasNeighbours(Node node)
+                    if (IsInBounds(x, y) && IsNotCorner(node, x, y) && maze[y, x] == NodeType.PATH)
+                    {
+                        spaces++;
+                    }
+                    if (IsInBounds(x, y) && IsNotCorner(node, x, y) && maze[y, x] == NodeType.END_POINT)
+                    {
+                        spaces++;
+                    }
+                }
+            }
+            return spaces > 0;
+        }
+        
+        private bool HasNeighbours(Node node)
         {
             int neighbours = 0;
             for(int y = node.y - 2; y <= node.y+2; y += 2)
             {
                 for (int x = node.x - 2; x <= node.x + 2; x += 2)
                 {
-                    if (isPointInBounds(x,y) && pointIsNotCorner(node, x, y) && maze[y, x] == NodeType.WALL)
+                    if (IsInBounds(x,y) && IsNotCorner(node, x, y) && maze[y, x] == NodeType.WALL)
                     {
                         neighbours++;
                     }
@@ -337,14 +356,15 @@ namespace Maze2
             }
             return neighbours > 0;
         }
-
-        private bool pointIsNotCorner(Node node, int x, int y)
+        
+        private bool IsNotCorner(Node node, int x, int y)
         {
             return (x == node.x || y == node.y);
         }
-        private bool isPointInBounds(int x, int y)
+        
+        private bool IsInBounds(int x, int y)
         {
-            return x > 0 && x < dimension && y > 0 && y < dimension;
+            return x >= 0 && x < dimension && y >= 0 && y < dimension;
         }
     }
 }

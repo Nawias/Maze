@@ -6,7 +6,7 @@ namespace Maze2
     {
         static void Main(string[] args)
         {
-            Maze maze = new Maze(15);
+            Maze maze = new Maze(7);
             maze.Generate();
             maze.Draw();
             maze.FindFullPath();
