@@ -1,4 +1,8 @@
-﻿using System;
+﻿/**
+    Michał Wójcik 2021 
+ */
+
+using System;
 
 namespace Maze2
 {
@@ -6,7 +10,8 @@ namespace Maze2
     {
         static void Main(string[] args)
         {
-            Maze maze = new Maze(7);
+            /* Logika dotycząca labiryntu zawarta jest w klasie Maze w osobnym pliku */
+            Maze maze = new Maze(10);
             maze.Generate();
             maze.Draw();
             maze.FindFullPath();

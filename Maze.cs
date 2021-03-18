@@ -1,13 +1,19 @@
-﻿using System;
+﻿/**
+    Michał Wójcik 2021 
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Maze2
 {
+    /* Enumeratory pomocne w oznaczaniu poszczególnych komórek, ścian planszy i kierunków */
     enum NodeType { WALL, PATH, START_POINT, END_POINT, GOOD_PATH, BAD_PATH }
     enum Wall { TOP, LEFT, BOTTOM, RIGHT }
     enum Direction { UP, LEFT, DOWN, RIGHT }
 
+    /* Struktura opisująca komórkę */
     struct Node
     {
         public int x, y;
@@ -22,6 +28,7 @@ namespace Maze2
         }
     }
 
+    /* Struktura opisująca krok w algorytmie znajdowania drogi w labiryncie */
     struct Step
     {
         public Node node;
@@ -38,9 +45,11 @@ namespace Maze2
     }
     class Maze
     {
+        /*Kwadratowa tablica 2D przechowująca labirynt*/
         private NodeType[,] maze;
+        /*Wymiar tablicy*/
         private int dimension;
-        private Stack<Node> nodes = new Stack<Node>();
+
         private Random rand = new Random();
         private bool generated = false;
         private int genSteps = 0;
@@ -48,10 +57,12 @@ namespace Maze2
 
         public Maze(int dimension)
         {
+            /*Rozmiar labiryntu podany w konstruktorze to rozmiar ścieżek: siatka składa się z pól i ścian*/
             this.dimension = (dimension*2)+1;
             maze = new NodeType[this.dimension, this.dimension];
         }
 
+        /* Metoda wyświetlająca labirynt w konsoli */
         public void Draw()
         {
             for (int i = 0; i < dimension; i++)
@@ -73,7 +84,7 @@ namespace Maze2
                             Console.Write(" E ");
                             break;
                         case NodeType.GOOD_PATH:
-                            Console.Write(" O ");
+                            Console.Write(" * ");
                             break;
                         case NodeType.BAD_PATH:
                             Console.Write("   ");
@@ -88,6 +99,20 @@ namespace Maze2
             Console.WriteLine("Generation Steps: " + genSteps + ", Pathfinding Steps: " + walkSteps);
         }
 
+
+        /* Algorytm znajdowania ścieżki w wygenerowanym labiryncie */
+        /* Algorytm bazuje na iteracyjnej implementacji algorytmu lewej ręki */
+        /**
+            1. Wybierz początkową komórkę w miejscu wejścia do labiryntu
+            2. Gdy stos nie jest pusty i nie doszliśmy jeszcze do końca
+                1. Jeśli komórka ma nieodwiedzonych sąsiadów
+                    1. Oznacz bieżącą komórkę jako rozwiązanie
+                    2. Odłóż bieżącą komórkę na stos
+                    3. Wybierz następną komórkę według reguły lewej ręki
+                2. Jeśli trafiliśmy do ślepego zaułka
+                    1. Oznacz bieżącą komórkę jako złe rozwiązanie
+                    2. Zdejmij komórkę ze stosu i oznacz jako bieżącą
+         */
         public void FindFullPath()
         {
             if (!generated)
@@ -104,7 +129,9 @@ namespace Maze2
 
             do
             {
-                if (IsWall(currentStep.node)) {
+                /* Na wypadek błędu, gdzie ściana zostanie oznaczona jako następny krok */
+                if (IsWall(currentStep.node)) 
+                {
                     currentStep = steps.Pop();
                 }
                 else if (HasEmptySpacesAround(currentStep.node))
@@ -118,46 +145,62 @@ namespace Maze2
                     markBad(currentStep);
                     currentStep = steps.Pop();
                 }
+                // Licznik kroków do wyświetlenia w oknie wynikowym
                 walkSteps++;
             } 
             while (!IsEndPoint(currentStep.node) && steps.Count > 0);
-
-
         }
 
+
+        /* Algorytm generujący labirynt - randomizowane przeszukiwanie wgłąb - wersja iteracyjna*/
+        /* Implementacja oparta na algorytmie ze strony https://pl.qaz.wiki/wiki/Maze_generation_algorithm */
+        /**
+            1. Wybierz początkową komórkę, oznacz ją jako odwiedzoną i umieść na stosie
+            2. Gdy stos nie jest pusty
+                1. Zdejmij komórkę ze stosu i ustaw ją jako bieżącą komórkę
+                2. Jeśli bieżąca komórka ma sąsiadów, których nie odwiedzono
+                    1. Odłóż bieżącą komórkę na stos
+                    2. Wybierz losowo jednego z nieodwiedzonych sąsiadów
+                    3. Usuń ścianę między bieżącą komórką a wybraną komórką
+                    4. Oznacz wybraną komórkę jako odwiedzoną i umieść ją na stosie
+        */
         public void Generate()
         {
-            //Start Point
-
+            /*Stos do cofania się*/
+            Stack<Node> nodes = new Stack<Node>();
+            
+            //Wejście do labiryntu
             maze[0, 1] = NodeType.START_POINT;
-            // 1.
-            Node node = new Node(1, 1);
-            maze[node.y, node.x] = NodeType.PATH;
-            nodes.Push(node);
-            // 2.
+
+            // Wybór początkowej komórki do generowania
+            Node currentNode = new Node(1, 1);
+            maze[currentNode.y, currentNode.x] = NodeType.PATH;
+            nodes.Push(currentNode);
+
             while (nodes.Count > 0)
             {
-                //1.
-                node = nodes.Pop();
+                //1. 
+                currentNode = nodes.Pop();
                 //2.
-                if (HasNeighbours(node))
+                if (HasNeighbours(currentNode))
                 {
                     //1.
-                    nodes.Push(node);
+                    nodes.Push(currentNode);
                     //2.
-                    Node nextNode = ChooseRandomNeighbour(node);
+                    Node nextNode = ChooseRandomNeighbour(currentNode);
                     //3.
-                    RemoveWall(node, nextNode);
+                    RemoveWall(currentNode, nextNode);
                     //4.
                     maze[nextNode.y, nextNode.x] = NodeType.PATH;
                     nodes.Push(nextNode);
                 }
+                // Licznik kroków do wyświetlenia w konsoli
                 genSteps++;
             }
-            //End Point
+            //Wyjście z labiryntu
             Node endPoint = GenerateEndPoint();
             maze[endPoint.y, endPoint.x] = NodeType.END_POINT;
-            //Finished
+            //Wygenerowano labirynt - można przejść do rozwiązywania go
             generated = true;
         }
 
